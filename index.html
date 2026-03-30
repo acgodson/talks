@@ -1,0 +1,2435 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Week 4 — Load Balancing, APIs & Security · Godson Ani</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --ink: #1a1a18;
+            --ink-2: #3d3d38;
+            --ink-3: #7a7a72;
+            --ink-4: #b0b0a8;
+            --paper: #faf9f6;
+            --paper-2: #f2f0eb;
+            --paper-3: #e8e5de;
+            --rule: #dedad2;
+            --blue: #1e5fa8;
+            --blue-bg: #eef4fc;
+            --green: #1a6b4a;
+            --green-bg: #e8f5ef;
+            --amber: #a05c0a;
+            --amber-bg: #fef3e2;
+            --red: #c0292a;
+            --red-bg: #fdf0f0;
+            --purple: #5b3db8;
+            --purple-bg: #f0edfc;
+            --accent: #2563eb;
+        }
+
+        html,
+        body {
+            height: 100%;
+            background: #e8e5de;
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        /* ── PRESENTATION CHROME ── */
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        #topbar {
+            height: 48px;
+            background: var(--ink);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 16px;
+            flex-shrink: 0;
+        }
+
+        #topbar .logo {
+            font-family: 'Instrument Serif', serif;
+            font-size: 16px;
+            color: var(--paper);
+            letter-spacing: .02em;
+        }
+
+        #topbar .sep {
+            color: #555;
+        }
+
+        #topbar .week {
+            font-size: 12px;
+            color: var(--ink-4);
+            font-weight: 400;
+            flex: 1;
+        }
+
+        #topbar .session-badge {
+            font-size: 11px;
+            font-weight: 500;
+            padding: 3px 10px;
+            border-radius: 20px;
+            background: #2a2a28;
+            color: var(--ink-4);
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+
+        #topbar .session-badge.teaching {
+            background: #1c3a6b;
+            color: #93bbf0;
+        }
+
+        #topbar .session-badge.case-study {
+            background: #0d4530;
+            color: #6fcba8;
+        }
+
+        #topbar .session-badge.social {
+            background: #3d2a7a;
+            color: #b8acf0;
+        }
+
+        #stage {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* ── SLIDE ── */
+        .slide {
+            display: none;
+            width: 100%;
+            max-width: 960px;
+            background: var(--paper);
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, .06), 0 8px 32px rgba(0, 0, 0, .12);
+            min-height: 540px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--rule);
+        }
+
+        .slide.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ruled lines texture on every slide */
+        .slide::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: repeating-linear-gradient(transparent, transparent 31px, var(--rule) 31px, var(--rule) 32px);
+            background-position: 0 64px;
+            opacity: .35;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .slide-inner {
+            position: relative;
+            z-index: 1;
+            padding: 52px 64px 48px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .slide-inner.padded-sm {
+            padding: 36px 48px 36px;
+        }
+
+        .slide-inner.center {
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        /* margin line on left — red like a real notebook */
+        .slide::after {
+            content: '';
+            position: absolute;
+            left: 56px;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: #f5c0c0;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── TYPOGRAPHY ── */
+        .tag {
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: .1em;
+            padding: 3px 10px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-bottom: 14px;
+            font-family: 'DM Mono', monospace;
+        }
+
+        .tag.blue {
+            background: var(--blue-bg);
+            color: var(--blue);
+        }
+
+        .tag.green {
+            background: var(--green-bg);
+            color: var(--green);
+        }
+
+        .tag.amber {
+            background: var(--amber-bg);
+            color: var(--amber);
+        }
+
+        .tag.red {
+            background: var(--red-bg);
+            color: var(--red);
+        }
+
+        .tag.purple {
+            background: var(--purple-bg);
+            color: var(--purple);
+        }
+
+        .tag.ink {
+            background: var(--paper-3);
+            color: var(--ink-2);
+        }
+
+        h1.display {
+            font-family: 'Instrument Serif', serif;
+            font-size: 52px;
+            line-height: 1.1;
+            color: var(--ink);
+            font-weight: 400;
+            letter-spacing: -.01em;
+            margin-bottom: 16px;
+        }
+
+        h1.display em {
+            font-style: italic;
+            color: var(--blue);
+        }
+
+        h2.slide-title {
+            font-family: 'Instrument Serif', serif;
+            font-size: 34px;
+            line-height: 1.2;
+            color: var(--ink);
+            font-weight: 400;
+            letter-spacing: -.01em;
+            margin-bottom: 8px;
+        }
+
+        h2.slide-title em {
+            font-style: italic;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: var(--ink-3);
+            line-height: 1.6;
+            max-width: 600px;
+        }
+
+        .eyebrow {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--ink-4);
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            margin-bottom: 6px;
+            font-family: 'DM Mono', monospace;
+        }
+
+        /* ── SLIDE FOOTER ── */
+        .slide-footer {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 64px;
+            border-top: 1px solid var(--rule);
+            background: var(--paper-2);
+            flex-shrink: 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .slide-footer .slide-num {
+            font-size: 11px;
+            color: var(--ink-4);
+            font-family: 'DM Mono', monospace;
+        }
+
+        .slide-footer .slide-topic {
+            font-size: 11px;
+            color: var(--ink-3);
+            flex: 1;
+        }
+
+        .slide-footer .instructor {
+            font-size: 11px;
+            color: var(--ink-3);
+        }
+
+        /* ── NAV ── */
+        #nav {
+            height: 52px;
+            background: var(--ink);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .nav-btn {
+            background: transparent;
+            border: 1px solid #333;
+            color: var(--ink-4);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            padding: 7px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all .15s;
+        }
+
+        .nav-btn:hover {
+            border-color: #666;
+            color: var(--paper);
+        }
+
+        .nav-btn:disabled {
+            opacity: .3;
+            cursor: default;
+        }
+
+        #progress-text {
+            font-size: 12px;
+            color: var(--ink-4);
+            font-family: 'DM Mono', monospace;
+            min-width: 64px;
+            text-align: center;
+        }
+
+        /* slide selector dots */
+        #dots {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            padding: 0 8px;
+        }
+
+        .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #333;
+            cursor: pointer;
+            transition: background .15s;
+        }
+
+        .dot.active {
+            background: var(--paper);
+        }
+
+        .dot.teaching {}
+
+        .dot.case-study {}
+
+        .dot.social {}
+
+        /* section dividers in dots */
+        .dot-sep {
+            width: 1px;
+            height: 14px;
+            background: #333;
+            margin: 0 3px;
+        }
+
+        /* ── CONTENT COMPONENTS ── */
+        .analogy {
+            background: var(--paper-2);
+            border-left: 3px solid var(--blue);
+            border-radius: 0 4px 4px 0;
+            padding: 12px 16px;
+            margin: 16px 0;
+        }
+
+        .analogy.green {
+            border-color: var(--green);
+        }
+
+        .analogy.amber {
+            border-color: var(--amber);
+        }
+
+        .analogy.red {
+            border-color: var(--red);
+        }
+
+        .analogy.purple {
+            border-color: var(--purple);
+        }
+
+        .analogy-label {
+            font-size: 10px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--ink-4);
+            margin-bottom: 5px;
+            font-family: 'DM Mono', monospace;
+        }
+
+        .analogy-text {
+            font-size: 13px;
+            color: var(--ink-2);
+            line-height: 1.65;
+        }
+
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin: 12px 0;
+        }
+
+        .three-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin: 12px 0;
+        }
+
+        .card {
+            background: var(--paper-2);
+            border: 1px solid var(--rule);
+            border-radius: 4px;
+            padding: 14px;
+        }
+
+        .card .card-icon {
+            font-size: 18px;
+            margin-bottom: 6px;
+        }
+
+        .card .card-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--ink);
+            margin-bottom: 4px;
+        }
+
+        .card .card-text {
+            font-size: 12px;
+            color: var(--ink-3);
+            line-height: 1.55;
+        }
+
+        .pill {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 500;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-family: 'DM Mono', monospace;
+        }
+
+        .pill.good {
+            background: var(--green-bg);
+            color: var(--green);
+        }
+
+        .pill.bad {
+            background: var(--red-bg);
+            color: var(--red);
+        }
+
+        .pill.neutral {
+            background: var(--paper-3);
+            color: var(--ink-3);
+        }
+
+        .flow-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 12px;
+            border: 1px solid var(--rule);
+            border-radius: 4px;
+            background: var(--paper-2);
+            font-size: 12px;
+            color: var(--ink-2);
+            margin-bottom: 5px;
+        }
+
+        .flow-row.good {
+            border-color: #b3dfca;
+            background: var(--green-bg);
+            color: var(--green);
+        }
+
+        .flow-row.bad {
+            border-color: #f5b8b8;
+            background: var(--red-bg);
+            color: var(--red);
+        }
+
+        .flow-row.highlight {
+            border-color: #b8cef5;
+            background: var(--blue-bg);
+            color: var(--blue);
+        }
+
+        .flow-who {
+            font-size: 11px;
+            font-weight: 500;
+            min-width: 80px;
+            font-family: 'DM Mono', monospace;
+        }
+
+        code {
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            background: var(--paper-3);
+            padding: 1px 5px;
+            border-radius: 3px;
+            color: var(--ink);
+        }
+
+        .box {
+            background: var(--paper-2);
+            border: 1px solid var(--rule);
+            border-radius: 4px;
+            padding: 8px 12px;
+            font-size: 12px;
+            text-align: center;
+            color: var(--ink-2);
+        }
+
+        .box.blue {
+            border-color: #93bbf0;
+            background: var(--blue-bg);
+            color: var(--blue);
+            font-weight: 500;
+        }
+
+        .box.green {
+            border-color: #7dcba8;
+            background: var(--green-bg);
+            color: var(--green);
+            font-weight: 500;
+        }
+
+        .box.hit {
+            border-color: #7dcba8 !important;
+            background: var(--green-bg) !important;
+            color: var(--green) !important;
+        }
+
+        .connector {
+            width: 1px;
+            background: var(--rule);
+            margin: 0 auto;
+        }
+
+        .connector-h {
+            height: 1px;
+            background: var(--rule);
+            flex: 1;
+        }
+
+        .progress-bar {
+            height: 5px;
+            background: var(--paper-3);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 5px 0;
+            width: 80px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            background: var(--blue);
+            transition: width .4s;
+        }
+
+        /* token circles */
+        .tokens {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            margin: 8px 0;
+        }
+
+        .token {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--blue-bg);
+            border: 1px solid #b0ccf0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: var(--blue);
+            font-weight: 500;
+            font-family: 'DM Mono', monospace;
+            transition: all .3s;
+        }
+
+        .token.used {
+            background: var(--paper-3);
+            border-color: var(--rule);
+            color: var(--ink-4);
+        }
+
+        .demo-zone {
+            background: var(--paper-2);
+            border: 1px solid var(--rule);
+            border-radius: 4px;
+            padding: 14px;
+            margin: 12px 0;
+        }
+
+        .demo-label {
+            font-size: 10px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--ink-4);
+            margin-bottom: 10px;
+            font-family: 'DM Mono', monospace;
+        }
+
+        .action-btn {
+            background: transparent;
+            border: 1px solid var(--rule);
+            border-radius: 3px;
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--ink-2);
+            cursor: pointer;
+            font-family: 'DM Sans', sans-serif;
+            transition: all .15s;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-right: 8px;
+            margin-top: 8px;
+        }
+
+        .action-btn:hover {
+            border-color: var(--ink-3);
+            background: var(--paper-3);
+        }
+
+        .action-btn.primary {
+            border-color: var(--blue);
+            color: var(--blue);
+            background: var(--blue-bg);
+        }
+
+        .action-btn.primary:hover {
+            background: #deeafb;
+        }
+
+        /* ── COVER SLIDE specifics ── */
+        .cover-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: auto;
+            padding-top: 32px;
+        }
+
+        .avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--ink);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            border: 2px solid var(--rule);
+            flex-shrink: 0;
+        }
+
+        .cover-meta-text .name {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--ink);
+        }
+
+        .cover-meta-text .links {
+            font-size: 12px;
+            color: var(--ink-4);
+            font-family: 'DM Mono', monospace;
+        }
+
+        .duration-pills {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .dur-pill {
+            font-size: 11px;
+            font-family: 'DM Mono', monospace;
+            padding: 4px 10px;
+            border: 1px solid var(--rule);
+            border-radius: 2px;
+            color: var(--ink-3);
+            background: var(--paper-2);
+        }
+
+        .dur-pill.active-session {
+            border-color: var(--blue);
+            color: var(--blue);
+            background: var(--blue-bg);
+        }
+
+        /* session divider slide */
+        .session-divider {
+            background: var(--ink) !important;
+            border-color: transparent !important;
+        }
+
+        .session-divider::before {
+            opacity: 0;
+        }
+
+        .session-divider::after {
+            background: #2a2a28;
+        }
+
+        .session-divider .slide-inner {
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        /* JWT anatomy  */
+        .jwt-part {
+            padding: 9px 12px;
+            border-bottom: 1px solid var(--rule);
+        }
+
+        .jwt-part:last-child {
+            border-bottom: none;
+        }
+
+        .jp-label {
+            font-size: 10px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: .07em;
+            margin-bottom: 4px;
+            font-family: 'DM Mono', monospace;
+        }
+
+        .jp-code {
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            color: var(--ink);
+            line-height: 1.6;
+            word-break: break-all;
+        }
+
+        .jp-note {
+            font-size: 11px;
+            color: var(--ink-3);
+            margin-top: 3px;
+        }
+
+        /* scale toggle */
+        .scale-opt {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid var(--rule);
+            border-radius: 4px;
+            text-align: center;
+            cursor: pointer;
+            transition: all .2s;
+            background: var(--paper-2);
+        }
+
+        .scale-opt.chosen {
+            border-color: #93bbf0;
+            background: var(--blue-bg);
+        }
+
+        .scale-opt .s-icon {
+            font-size: 18px;
+            margin-bottom: 4px;
+        }
+
+        .scale-opt .s-title {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--ink);
+        }
+
+        .scale-opt .s-desc {
+            font-size: 11px;
+            color: var(--ink-3);
+            margin-top: 2px;
+        }
+
+        /* rider map */
+        .city-map {
+            background: var(--paper-2);
+            border: 1px solid var(--rule);
+            border-radius: 4px;
+            position: relative;
+            height: 200px;
+            overflow: hidden;
+        }
+
+        .city-grid {
+            position: absolute;
+            inset: 0;
+            background-image: repeating-linear-gradient(var(--rule) 0 1px, transparent 1px 40px),
+                repeating-linear-gradient(90deg, var(--rule) 0 1px, transparent 1px 40px);
+            opacity: .5;
+        }
+
+        .car {
+            position: absolute;
+            font-size: 18px;
+            transition: all 1s ease;
+            cursor: default;
+        }
+
+        .rider-pin {
+            position: absolute;
+            font-size: 16px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1)
+            }
+
+            50% {
+                transform: scale(1.2)
+            }
+        }
+
+        .surge-zone {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(192, 41, 42, .08);
+            border: 1.5px dashed rgba(192, 41, 42, .3);
+            transition: all .5s;
+        }
+
+        /* big number highlight */
+        .big-num {
+            font-family: 'Instrument Serif', serif;
+            font-size: 48px;
+            color: var(--blue);
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        /* auth flow gate */
+        .gate-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border: 1px solid var(--rule);
+            border-radius: 4px;
+            margin-bottom: 5px;
+            background: var(--paper-2);
+            cursor: pointer;
+            transition: background .15s;
+            font-size: 13px;
+        }
+
+        .gate-row:hover {
+            background: var(--paper-3);
+        }
+
+        .gate-icon {
+            font-size: 15px;
+            width: 24px;
+            text-align: center;
+        }
+
+        .gate-name {
+            flex: 1;
+            color: var(--ink-2);
+            font-size: 12px;
+        }
+
+        .gate-result {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-family: 'DM Mono', monospace;
+        }
+
+        .gate-result.pass {
+            background: var(--green-bg);
+            color: var(--green);
+        }
+
+        .gate-result.fail {
+            background: var(--red-bg);
+            color: var(--red);
+        }
+
+        .gate-result.idle {
+            background: var(--paper-3);
+            color: var(--ink-4);
+        }
+
+        /* boarding pass  */
+        .bpass {
+            border: 1px solid var(--rule);
+            border-radius: 4px;
+            overflow: hidden;
+            background: var(--paper-2);
+            margin: 10px 0;
+        }
+
+        .bpass-head {
+            padding: 8px 13px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--paper-3);
+        }
+
+        .bpass-div {
+            height: 1px;
+            background: var(--rule);
+            margin: 0 13px;
+            position: relative;
+        }
+
+        .bpass-div::before,
+        .bpass-div::after {
+            content: '';
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--paper-2);
+            top: -6px;
+        }
+
+        .bpass-div::before {
+            left: -19px;
+        }
+
+        .bpass-div::after {
+            right: -19px;
+        }
+
+        .bpass-body {
+            padding: 10px 13px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 9px;
+        }
+
+        .bfield-label {
+            font-size: 10px;
+            color: var(--ink-4);
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            margin-bottom: 2px;
+            font-family: 'DM Mono', monospace;
+        }
+
+        .bfield-val {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--ink);
+        }
+
+        /* Q&A and social slides */
+        .qna-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-top: 16px;
+        }
+
+        .qna-card {
+            background: var(--paper-2);
+            border: 1px solid var(--rule);
+            border-radius: 4px;
+            padding: 14px 16px;
+        }
+
+        .qna-q {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--ink);
+            line-height: 1.5;
+        }
+
+        .qna-hint {
+            font-size: 11px;
+            color: var(--ink-4);
+            margin-top: 5px;
+            font-family: 'DM Mono', monospace;
+        }
+
+        /* timeline for agenda slide */
+        .timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .tl-item {
+            display: flex;
+            gap: 16px;
+            align-items: stretch;
+        }
+
+        .tl-left {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
+            width: 80px;
+            flex-shrink: 0;
+        }
+
+        .tl-time {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--ink-3);
+            font-family: 'DM Mono', monospace;
+            padding-top: 10px;
+            text-align: right;
+            width: 100%;
+        }
+
+        .tl-dot-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+        }
+
+        .tl-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 2px solid var(--rule);
+            background: var(--paper);
+            margin-top: 12px;
+            flex-shrink: 0;
+        }
+
+        .tl-dot.fill {
+            background: var(--blue);
+            border-color: var(--blue);
+        }
+
+        .tl-line {
+            width: 1px;
+            flex: 1;
+            background: var(--rule);
+            min-height: 8px;
+        }
+
+        .tl-body {
+            padding: 8px 0 14px;
+            flex: 1;
+        }
+
+        .tl-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--ink);
+        }
+
+        .tl-sub {
+            font-size: 12px;
+            color: var(--ink-3);
+            margin-top: 2px;
+        }
+
+        .tl-item.active .tl-dot {
+            background: var(--blue);
+            border-color: var(--blue);
+        }
+
+        .tl-item.active .tl-title {
+            color: var(--blue);
+        }
+
+        /* server grid for scaling */
+        #server-grid {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 5px 0;
+        }
+
+        .slider-row label {
+            font-size: 12px;
+            color: var(--ink-3);
+            min-width: 90px;
+        }
+
+        .slider-row input[type=range] {
+            flex: 1;
+            accent-color: var(--blue);
+        }
+
+        .slider-row .val {
+            font-size: 13px;
+            font-weight: 500;
+            min-width: 44px;
+            text-align: right;
+            color: var(--ink);
+            font-family: 'DM Mono', monospace;
+        }
+
+        /* social slide */
+        .social-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .social-card {
+            background: var(--paper-2);
+            border: 1px dashed var(--rule);
+            border-radius: 4px;
+            padding: 16px 14px;
+            text-align: center;
+        }
+
+        .social-card .sc-emoji {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .social-card .sc-q {
+            font-size: 12px;
+            color: var(--ink-2);
+            line-height: 1.5;
+        }
+
+        /* tab panels (JWT) */
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 12px;
+        }
+
+        .tab {
+            padding: 5px 12px;
+            border-radius: 3px;
+            border: 1px solid var(--rule);
+            background: transparent;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 12px;
+            cursor: pointer;
+            color: var(--ink-3);
+            transition: all .15s;
+        }
+
+        .tab.active {
+            background: var(--paper-3);
+            border-color: var(--ink-4);
+            color: var(--ink);
+            font-weight: 500;
+        }
+
+        .tpanel {
+            display: none;
+        }
+
+        .tpanel.active {
+            display: block;
+        }
+
+        /* rate limit response */
+        .rl-response {
+            font-size: 12px;
+            font-family: 'DM Mono', monospace;
+            padding: 8px 12px;
+            border-radius: 3px;
+            margin-top: 8px;
+            min-height: 32px;
+        }
+
+        /* abuse categories */
+        .abuse-item {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            padding: 9px 12px;
+            border: 1px solid var(--rule);
+            border-radius: 4px;
+            background: var(--paper-2);
+            margin-bottom: 6px;
+        }
+
+        .abuse-icon {
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .abuse-title {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--ink);
+        }
+
+        .abuse-desc {
+            font-size: 11px;
+            color: var(--ink-3);
+            margin-top: 2px;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <!-- TOP BAR -->
+        <div id="topbar">
+            <div class="logo">Godson Ani</div>
+            <div class="sep">·</div>
+            <div class="week">Week 4 — Load Balancing, APIs & Security</div>
+            <div class="session-badge" id="session-label">Session</div>
+        </div>
+
+        <!-- STAGE -->
+        <div id="stage">
+
+            <!-- ── SLIDE 1: COVER ── -->
+            <div class="slide active" data-session="teaching" data-topic="Cover">
+                <div class="slide-inner center">
+                    <div class="tag ink">Week 4</div>
+                    <h1 class="display">Load Balancing,<br><em>APIs & Security</em></h1>
+                    <p class="subtitle">How production systems handle millions of users — and keep them
+                        safe.<br>Practice: Design a Ride-Hailing System (Uber / Bolt)</p>
+
+           
+                    <div class="cover-meta">
+                        <div class="avatar"
+                            style="background:none;border:2px solid var(--rule);overflow:hidden;padding:0;width:52px;height:52px">
+                            <img src="https://media.licdn.com/dms/image/v2/C5603AQH337BwJ68vOw/profile-displayphoto-shrink_800_800/profile-displayphoto-shrink_800_800/0/1645184903155?e=1776297600&v=beta&t=jQ8fzUHJuP60il4Lpzuw5jNXCj6TYbTsEF_uy1Dhuws"
+                                style="width:100%;height:100%;object-fit:cover;display:block" alt="Godson Ani"
+                                onerror="this.parentElement.textContent='GA';this.parentElement.style.background='var(--ink)';this.parentElement.style.color='var(--paper)';this.parentElement.style.fontWeight='700';this.parentElement.style.fontSize='16px';this.parentElement.style.display='flex';this.parentElement.style.alignItems='center';this.parentElement.style.justifyContent='center'">
+                        </div>
+                        <div class="cover-meta-text">
+                            <div class="name"
+                                style="font-size:18px;font-weight:700;letter-spacing:-.01em;color:var(--ink)">Godson Ani
+                            </div>
+                            <div class="social-links" style="display:flex;gap:10px;margin-top:7px;align-items:center">
+                                <a href="https://linkedin.com/in/acgodson" target="_blank" class="social-pill"
+                                    style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-family:'DM Mono',monospace;color:#0a66c2;background:#e8f0fb;border:1px solid #b8cef5;padding:4px 10px;border-radius:3px;text-decoration:none;transition:background .15s"
+                                    onmouseover="this.style.background='#d0e4f7'"
+                                    onmouseout="this.style.background='#e8f0fb'">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                                        <path
+                                            d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                                    </svg>
+                                    acgodson
+                                </a>
+                                <a href="https://x.com/Ac_godson" target="_blank" class="social-pill"
+                                    style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-family:'DM Mono',monospace;color:#0f0f0f;background:#f0f0ee;border:1px solid #d8d8d0;padding:4px 10px;border-radius:3px;text-decoration:none;transition:background .15s"
+                                    onmouseover="this.style.background='#e2e2de'"
+                                    onmouseout="this.style.background='#f0f0ee'">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                        <path
+                                            d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.736-8.849L1.254 2.25H8.08l4.259 5.63 5.905-5.63Zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                                    </svg>
+                                    Ac_godson
+                                </a>
+                                <a href="https://github.com/acgodson" target="_blank" class="social-pill"
+                                    style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-family:'DM Mono',monospace;color:#24292f;background:#f0f0ee;border:1px solid #d8d8d0;padding:4px 10px;border-radius:3px;text-decoration:none;transition:background .15s"
+                                    onmouseover="this.style.background='#e2e2de'"
+                                    onmouseout="this.style.background='#f0f0ee'">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                                        <path
+                                            d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+                                    </svg>
+                                    acgodson
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slide-footer">
+                    <span class="slide-num">01 / 18</span>
+                    <span class="slide-topic">Introduction</span>
+                    <span class="instructor">Instructor D</span>
+                </div>
+            </div>
+
+            <!-- ── SLIDE 2: TODAY'S AGENDA ── -->
+            <div class="slide" data-session="teaching" data-topic="Agenda">
+                <div class="slide-inner padded-sm">
+                    <div class="tag ink">Today</div>
+                    <h2 class="slide-title">What we'll cover</h2>
+                    <div class="timeline" style="margin-top:16px">
+                        <div class="tl-item">
+                            <div class="tl-left">
+                                <div class="tl-time">5 – 6 PM</div>
+                            </div>
+                            <div class="tl-dot-col">
+                                <div class="tl-dot fill"></div>
+                                <div class="tl-line"></div>
+                            </div>
+                            <div class="tl-body">
+                                <div class="tl-title" style="color:var(--blue)">⚖ Teaching Session</div>
+                                <div class="tl-sub">Load balancing · Scaling · Stateless/stateful · Rate limiting · Auth
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tl-item">
+                            <div class="tl-left">
+                                <div class="tl-time">6 – 6:30</div>
+                            </div>
+                            <div class="tl-dot-col">
+                                <div class="tl-dot"></div>
+                                <div class="tl-line"></div>
+                            </div>
+                            <div class="tl-body">
+                                <div class="tl-title">💬 Q&A Round 1</div>
+                                <div class="tl-sub">Open questions on theory</div>
+                            </div>
+                        </div>
+                        <div class="tl-item">
+                            <div class="tl-left">
+                                <div class="tl-time">6:30 – 7</div>
+                            </div>
+                            <div class="tl-dot-col">
+                                <div class="tl-dot fill" style="background:var(--green);border-color:var(--green)">
+                                </div>
+                                <div class="tl-line"></div>
+                            </div>
+                            <div class="tl-body">
+                                <div class="tl-title" style="color:var(--green)">🚗 Case Study: Ride-Hailing</div>
+                                <div class="tl-sub">Design Uber/Bolt using everything from teaching</div>
+                            </div>
+                        </div>
+                        <div class="tl-item">
+                            <div class="tl-left">
+                                <div class="tl-time">7 – 7:30</div>
+                            </div>
+                            <div class="tl-dot-col">
+                                <div class="tl-dot"></div>
+                                <div class="tl-line"></div>
+                            </div>
+                            <div class="tl-body">
+                                <div class="tl-title">💬 Q&A Round 2</div>
+                                <div class="tl-sub">Design decisions, trade-offs</div>
+                            </div>
+                        </div>
+                        <div class="tl-item">
+                            <div class="tl-left">
+                                <div class="tl-time">7:30 – 8</div>
+                            </div>
+                            <div class="tl-dot-col">
+                                <div class="tl-dot fill" style="background:var(--purple);border-color:var(--purple)">
+                                </div>
+                            </div>
+                            <div class="tl-body" style="padding-bottom:0">
+                                <div class="tl-title" style="color:var(--purple)">👋 Get to Know Someone</div>
+                                <div class="tl-sub">Structured networking prompts</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slide-footer">
+                    <span class="slide-num">02 / 18</span>
+                    <span class="slide-topic">Agenda</span>
+                    <span class="instructor">Instructor D</span>
+                </div>
+            </div>
+
+            <!-- ── SLIDE 3: LOAD BALANCING ── -->
+            <div class="slide" data-session="teaching" data-topic="Load Balancing">
+                <div class="slide-inner padded-sm">
+                    <div class="tag blue">Traffic distribution</div>
+                    <h2 class="slide-title">Load Balancing</h2>
+                    <p class="subtitle" style="margin-bottom:12px">Spreading requests across many servers so no single
+                        one gets overwhelmed.</p>
+
+                    <div class="analogy blue">
+                        <div class="analogy-label">IMAGINE</div>
+                        <div class="analogy-text">Like a Shoprite with multiple checkout points — a floor attendant
+                            (load
+                            balancer) directs each customer to the next available cashier. No single points jams up, and
+                            if one breaks, the others keep going.</div>
+                    </div>
+
+                    <div class="demo-zone">
+                        <div class="demo-label">Interactive — send requests</div>
+                        <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+                            <div class="box blue" style="min-width:130px">🌐 User request</div>
+                            <div class="connector" style="height:12px"></div>
+                            <div class="box blue" style="min-width:130px">⚖ Load balancer</div>
+                            <div style="display:flex;gap:20px;align-items:flex-start;margin-top:4px">
+                                <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+                                    <div class="connector" style="height:12px"></div>
+                                    <div class="box" id="srv1" style="min-width:80px">Server 1</div>
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" id="p1" style="width:30%"></div>
+                                    </div>
+                                </div>
+                                <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+                                    <div class="connector" style="height:12px"></div>
+                                    <div class="box" id="srv2" style="min-width:80px">Server 2</div>
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" id="p2" style="width:50%"></div>
+                                    </div>
+                                </div>
+                                <div style="display:flex;flex-direction:column;align-items:center;gap:5px">
+                                    <div class="connector" style="height:12px"></div>
+                                    <div class="box" id="srv3" style="min-width:80px">Server 3</div>
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" id="p3" style="width:20%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="action-btn primary" onclick="sendReq()" style="margin-top:10px">Send a request
+                            ↗</button>
+                        <span id="lb-counter"
+                            style="font-size:11px;color:var(--ink-4);font-family:'DM Mono',monospace;margin-left:8px">0
+                            requests routed</span>
+                    </div>
+
+                    <div class="two-col" style="margin-top:6px">
+                        <div class="card">
+                            <div class="card-icon">🔄</div>
+                            <div class="card-title">Round-robin</div>
+                            <div class="card-text">Each request → next server in rotation. Simple & fair.</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-icon">📊</div>
+                            <div class="card-title">Least connections</div>
+                            <div class="card-text">Route to server with fewest active requests. Smarter for mixed loads.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slide-footer">
+                    <span class="slide-num">03 / 18</span>
+                    <span class="slide-topic">Load Balancing</span>
+                    <span class="instructor">Instructor D</span>
+                </div>
+            </div>
+
+            <!-- ── SLIDE 4: SCALING ── -->
+            <div class="slide" data-session="teaching" data-topic="Scaling">
+                <div class="slide-inner padded-sm">
+                    <div class="tag green">Scaling</div>
+                    <h2 class="slide-title">Horizontal vs <em>Vertical</em> Scaling</h2>
+
+                    <div class="analogy green">
+                        <div class="analogy-label">IMAGINE</div>
+                        <div class="analogy-text">Vertical = hire a superhuman chef who can work 3× faster. Horizontal =
+                            hire 3 regular chefs. One chef hits a ceiling; three chefs can keep scaling indefinitely.
+                        </div>
+                    </div>
+
+                    <div style="display:flex;gap:8px;margin:12px 0">
+                        <div class="scale-opt chosen" id="opt-h" onclick="pickScale('h')">
+                            <div class="s-icon">➕</div>
+                            <div class="s-title">Horizontal</div>
+                            <div class="s-desc">Add more servers</div>
+                        </div>
+                        <div class="scale-opt" id="opt-v" onclick="pickScale('v')">
+                            <div class="s-icon">⬆</div>
+                            <div class="s-title">Vertical</div>
+                            <div class="s-desc">Bigger server</div>
+                        </div>
+                    </div>
+
+                    <div class="demo-zone">
+                        <div class="demo-label" id="scale-demo-label">Horizontal scaling</div>
+                        <div id="server-grid"></div>
+                        <button class="action-btn primary" onclick="addServer()" style="margin-top:8px">Add a server
+                            ↗</button>
+                    </div>
+
+                    <div class="two-col">
+                        <div class="card" style="border-color:#b3dfca">
+                            <div class="card-title" style="color:var(--green)">✓ Horizontal wins</div>
+                            <div class="card-text">No ceiling · Easy redundancy · Used by Uber, Netflix, Google</div>
+                        </div>
+                        <div class="card" style="border-color:#f5b8b8">
+                            <div class="card-title" style="color:var(--red)">⚠ Vertical limits</div>
+                            <div class="card-text">Hardware ceiling · Single point of failure · Very expensive at top
+                                end</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slide-footer">
+                    <span class="slide-num">04 / 18</span>
+                    <span class="slide-topic">Scaling Strategies</span>
+                    <span class="instructor">Instructor D</span>
+                </div>
+            </div>
+
+            <!-- ── SLIDE 5: STATELESS vs STATEFUL ── -->
+            <div class="slide" data-session="teaching" data-topic="Stateless vs Stateful">
+                <div class="slide-inner padded-sm">
+                    <div class="tag amber">Architecture</div>
+                    <h2 class="slide-title">Stateless vs <em>Stateful</em></h2>
+                    <p class="subtitle" style="margin-bottom:12px">The most important design decision for scalable
+                        systems.</p>
+
+                    <div class="analogy amber">
+                        <div class="analogy-label">IMAGINE</div>
+                        <div class="analogy-text">Stateless = vending machine. Every button press works the same, no
+                            history remembered. Stateful = a human cashier who remembers your running tab.</div>
+                    </div>
+
+                    <div class="two-col">
+                        <div class="card">
+                            <div class="card-title">📭 Stateless</div>
+                            <div class="card-text" style="margin-top:5px">Each request carries <em>everything</em> the
+                                server needs. Any server can handle any request.</div>
+                            <div class="pill good" style="margin-top:10px">✓ Scales horizontally</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-title">📬 Stateful</div>
+                            <div class="card-text" style="margin-top:5px">Server holds session in memory. Fast, but tied
+                                to one server — breaks if that server dies.</div>
+                            <div class="pill bad" style="margin-top:10px">⚠ Hard to scale</div>
+                        </div>
+                    </div>
+
+                    <div class="demo-zone" style="margin-top:8px">
+                        <div class="demo-label">The fix: shared session store</div>
+                        <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+                            <div style="display:flex;gap:10px">
+                                <div class="box" style="min-width:80px">Server A</div>
+                                <div class="box" style="min-width:80px">Server B</div>
+                                <div class="box" style="min-width:80px">Server C</div>
+                            </div>
+                            <div style="font-size:11px;color:var(--ink-4)">↕ all read/write from</div>
+                            <div class="box blue" style="min-width:180px">🗄 Redis / shared store</div>
+                        </div>
+                        <div style="margin-top:8px;font-size:12px;color:var(--ink-3)">→ JWT solves this even more
+                            elegantly (next slide)</div>
+                    </div>
+                </div>
+                <div class="slide-footer">
+                    <span class="slide-num">05 / 18</span>
+                    <span class="slide-topic">Stateless vs Stateful</span>
+                    <span class="instructor">Instructor D</span>
+                </div>
+            </div>
+
+            <!-- ── SLIDE 6: JWT ── -->
+            <div class="slide" data-session="teaching" data-topic="JWT">
+                <div class="slide-inner padded-sm">
+                    <div class="tag amber">Stateless auth</div>
+                    <h2 class="slide-title">How JWT makes services <em>stateless</em></h2>
+
+                    <div class="tabs">
+                        <button class="tab active" onclick="switchJWT('flow')">The problem & fix</button>
+                        <button class="tab" onclick="switchJWT('anatomy')">Inside a JWT</button>
+                    </div>
+
+                    <div class="tpanel active" id="jwt-flow">
+                        <div class="flow-row bad">
+                            <span class="flow-who">Server B</span>
+                            <span>Receives <code>session_id=abc123</code>. Never seen it — session lives in Server A's
+                                memory. User logged out. ✗</span>
+                        </div>
+                        <div style="font-size:12px;color:var(--ink-4);text-align:center;padding:4px 0">vs. with JWT →
+                        </div>
+                        <div class="flow-row highlight">
+                            <span class="flow-who">Server</span>
+                            <span>Creates token: <code>user_id: u_42, role: rider, exp: +15min</code>. Signs it. Sends
+                                it back. <strong>Stores nothing.</strong></span>
+                        </div>
+                        <div class="flow-row good">
+                            <span class="flow-who">Server B</span>
+                            <span>Receives token. Verifies signature. Reads <code>user_id + role</code> directly. No DB
+                                lookup. ✓</span>
+                        </div>
+                        <div class="flow-row good">
+                            <span class="flow-who">Server C</span>
+                            <span>Same result. Any server in the fleet handles any JWT. Fully stateless. ✓</span>
+                        </div>
+                    </div>
+
+                    <div class="tpanel" id="jwt-anatomy">
+                        <div
+                            style="border:1px solid var(--rule);border-radius:4px;overflow:hidden;background:var(--paper-2)">
+                            <div class="jwt-part" style="background:var(--blue-bg)">
+                                <div class="jp-label" style="color:var(--blue)">Header</div>
+                                <div class="jp-code">eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9</div>
+                                <div class="jp-note">Decodes to: <code>{ "alg": "HS256", "typ": "JWT" }</code></div>
+                            </div>
+                            <div class="jwt-part">
+                                <div class="jp-label" style="color:var(--green)">Payload — your data</div>
+                                <div class="jp-code">eyJ1c2VyX2lkIjoidV80MiIsInJvbGUiOiJyaWRlciJ9</div>
+                                <div class="jp-note">Decodes to:
+                                    <code>{ "user_id": "u_42", "role": "rider", "exp": 1712000000 }</code>
+                                </div>
+                            </div>
+                            <div class="jwt-part" style="background:var(--amber-bg)">
+                                <div class="jp-label" style="color:var(--amber)">Signature — tamper proof</div>
+                                <div class="jp-code">SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c</div>
+                                <div class="jp-note">HMAC(header + payload, secret_key). Edit payload → signature breaks
+                                    → rejected.</div>
+                            </div>
+                        </div>
+                        <div class="two-col" style="margin-top:8px">
+                            <div class="card">
+                                <div class="card-title">📖 Payload is readable</div>
+                                <div class="card-text">Anyone can base64-decode it. Never put passwords in JWT.</div>
+                            </div>
+                            <div class="card">
+                                <div class="card-title">🔒 Payload can't be changed</div>
+                                <div class="card-text">Change <code>role:rider</code> → <code>role:admin</code>?
+                                    Signature fails instantly.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slide-footer">
+                    <span class="slide-num">06 / 18</span>
+                    <span class="slide-topic">JWT & Stateless Auth</span>
+                    <span class="instructor">Instructor D</span>
+                </div>
+            </div>
+
+            <!-- ── SLIDE 7: RATE LIMITING ── -->
+            <div class="slide" data-session="teaching" data-topic="Rate Limiting">
+                <div class="slide-inner padded-sm">
+                    <div class="tag red">Security</div>
+                    <h2 class="slide-title">API Rate Limiting</h2>
+                    <p class="subtitle" style="margin-bottom:12px">Controlling how many requests a client can make per
+                        time window.</p>
+
+                    <div class="analogy red">
+                        <div class="analogy-label">IMAGINE</div>
+                        <div class="analogy-text">An ATM with a daily withdrawal limit. The bank doesn't block you
+                            forever — it says "you've reached your limit for today, come back tomorrow." Protects
+                            everyone, stops one person draining resources, resets automatically.</div>
+                    </div>
+
+                    <div class="demo-zone">
+                        <div class="demo-label">Token bucket — try it</div>
+                        <div class="slider-row">
+                            <label>Bucket size</label>
+                            <input type="range" id="bucket-size" min="3" max="10" value="5" oninput="updateBucket()">
+                            <span class="val" id="bucket-val">5</span>
+                        </div>
+                        <div class="tokens" id="token-display"></div>
+                        <button class="action-btn primary" onclick="fireRequest()">Make API request ↗</button>
+                        <button class="action-btn" onclick="refillBucket()">Refill (new window) ↻</button>
+                        <div class="rl-response" id="rl-response" style="background:var(--paper-3);color:var(--ink-4)">—
+                        </div>
+                    </div>
+
+                    <div class="two-col" style="margin-top:4px">
+                        <div class="card">
+                            <div class="card-title">Why rate limit?</div>
+                            <div class="card-text">Prevent DDoS · Stop scraping · Fair usage · Cost control</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-title">Common headers</div>
+                            <div class="card-text"><code>X-RateLimit-Limit</code> · <code>X-RateLimit-Remaining</code> ·
+                                <code>Retry-After</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slide-footer">
+                    <span class="slide-num">07 / 18</span>
+                    <span class="slide-topic">Rate Limiting</span>
+                    <span class="instructor">Instructor D</span>
+                </div>
+            </div>
+
+            <!-- ── SLIDE 8: AUTH & AUTHORIZATION ── -->
+            <div class="slide" data-session="teaching" data-topic="Auth & Authorization">
+                <div class="slide-inner padded-sm">
+                    <div class="tag purple">Security</div>
+                    <h2 class="slide-title">Authentication <em>&</em> Authorization</h2>
+
+                    <div class="two-col" style="margin-bottom:12px">
+                        <div class="card" style="border-color:#b8acf0">
+                            <div class="card-icon">🪪</div>
+                            <div class="card-title">Authentication</div>
+                            <div class="card-text"><em>Who are you?</em> Verify identity via password, token, biometric.
+                                Login = authn.</div>
+                        </div>
+                        <div class="card" style="border-color:#b8acf0">
+                            <div class="card-icon">🚦</div>
+                            <div class="card-title">Authorization</div>
+                            <div class="card-text"><em>What can you do?</em> Permissions, roles, scopes. After login =
+                                authz.</div>
+                        </div>
+                    </div>
+
+                    <div class="demo-zone">
+                        <div class="demo-label">Boarding pass check — click each gate</div>
+                        <div class="bpass">
+                            <div class="bpass-head">
+                                <span style="font-size:13px;font-weight:500">API Request</span>
+                                <span class="pill neutral">Bearer eyJhbG…</span>
+                            </div>
+                            <div class="bpass-div"></div>
+                            <div class="bpass-body">
+                                <div>
+                                    <div class="bfield-label">User</div>
+                                    <div class="bfield-val">Chidi</div>
+                                </div>
+                                <div>
+                                    <div class="bfield-label">Role</div>
+                                    <div class="bfield-val">rider</div>
+                                </div>
+                                <div>
+                                    <div class="bfield-label">Scopes</div>
+                                    <div class="bfield-val" style="font-size:11px"><span
+                                            class="pill good">read:trips</span> <span class="pill bad">admin</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="gate-row" onclick="checkGate(this,'✅ Token valid — not expired, signature OK')"
+                            style="cursor:pointer">
+                            <span class="gate-icon">🔐</span>
+                            <span class="gate-name">Is the JWT signature valid?</span>
+                            <span class="gate-result idle">—</span>
+                        </div>
+                        <div class="gate-row" onclick="checkGate(this,'✅ Role confirmed — user is a rider')"
+                            style="cursor:pointer">
+                            <span class="gate-icon">👤</span>
+                            <span class="gate-name">Does user have role: rider?</span>
+                            <span class="gate-result idle">—</span>
+                        </div>
+                        <div class="gate-row"
+                            onclick="checkGateF(this,'❌ 403 Forbidden — rider scope does not include admin')"
+                            style="cursor:pointer">
+                            <span class="gate-icon">🛡</span>
+                            <span class="gate-name">Requesting admin endpoint — allowed?</span>
+                            <span class="gate-result idle">—</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="slide-footer">
+                    <span class="slide-num">08 / 18</span>
+                    <span class="slide-topic">Auth & Authorization</span>
+                    <span class="instructor">Instructor D</span>
+                </div>
+            </div>
+
+            <!-- ── SLIDE 9: ABUSE & DATA LEAKS ── -->
+            <div class="slide" data-session="teaching" data-topic="Abuse & Data">
+                <div class="slide-inner padded-sm">
+                    <div class="tag red">Prevention</div>
+                    <h2 class="slide-title">Preventing Abuse <em>&</em> Data Leaks</h2>
+
+                    <div class="abuse-item">
+                        <div class="abuse-icon">🤖</div>
+                        <div>
+                            <div class="abuse-title">Bot & DDoS attacks</div>
+                            <div class="abuse-desc">Rate limiting + IP blocking + CAPTCHA. Bolt/Uber use ML anomaly
+                                detection for surge abuse.</div>
+                        </div>
+                    </div>
+                    <div class="abuse-item">
+                        <div class="abuse-icon">🗃</div>
+                        <div>
+                            <div class="abuse-title">API scraping</div>
+                            <div class="abuse-desc">Pagination limits, auth on all endpoints, response field filtering.
+                                Don't expose internal IDs.</div>
+                        </div>
+                    </div>
+                    <div class="abuse-item">
+                        <div class="abuse-icon">🔓</div>
+                        <div>
+                            <div class="abuse-title">Broken object-level auth (BOLA)</div>
+                            <div class="abuse-desc">The most common API bug. User A shouldn't access user B's trip data.
+                                Always check ownership.</div>
+                        </div>
+                    </div>
+                    <div class="abuse-item">
+                        <div class="abuse-icon">📤</div>
+                        <div>
+                            <div class="abuse-title">Sensitive data exposure</div>
+                            <div class="abuse-desc">Encrypt in transit (HTTPS) + at rest. Never log tokens or passwords.
+                                Mask PII in responses.</div>
+                        </div>
+                    </div>
+                    <div class="abuse-item">
+                        <div class="abuse-icon">📍</div>
+                        <div>
+                            <div class="abuse-title">Location data leaks</div>
+                            <div class="abuse-desc">Ride-hailing specific. Fuzzy driver positions before pickup
+                                confirmed. Purge raw GPS logs after trip.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slide-footer">
+                    <span class="slide-num">09 / 18</span>
+                    <span class="slide-topic">Abuse & Data Leaks</span>
+                    <span class="instructor">Instructor D</span>
+                </div>
+            </div>
+
+            <!-- ── SLIDE 10: Q&A DIVIDER ── -->
+            <div class="slide session-divider" data-session="qa" data-topic="Q&A">
+                <div class="slide-inner" style="justify-content:center;padding:52px 64px">
+                    <div class="tag" style="background:#1c3a6b;color:#93bbf0">6:00 – 6:30 PM</div>
+                    <h1 class="display" style="color:#faf9f6;font-size:48px">Questions &<br><em
+                            style="color:#93bbf0">Answers</em></h1>
+                    <p class="subtitle" style="color:#7a7a9a;margin-top:8px">Ask anything from the teaching
+                        session.<br>No question is too basic.</p>
+
+                    <div class="qna-grid">
+                        <div class="qna-card" style="background:#1a1a18;border-color:#2a2a28">
+                            <div class="qna-q" style="color:#f0eeea">What's the difference between a load balancer and a
+                                reverse proxy?</div>
+                            <div class="qna-hint">starter question</div>
+                        </div>
+                        <div class="qna-card" style="background:#1a1a18;border-color:#2a2a28">
+                            <div class="qna-q" style="color:#f0eeea">Can a JWT be revoked before it expires?</div>
+                            <div class="qna-hint">tricky one</div>
+                        </div>
+                        <div class="qna-card" style="background:#1a1a18;border-color:#2a2a28">
+                            <div class="qna-q" style="color:#f0eeea">When would you choose stateful over stateless?
+                            </div>
+                            <div class="qna-hint">design decision</div>
+                        </div>
+                        <div class="qna-card" style="background:#1a1a18;border-color:#2a2a28">
+                            <div class="qna-q" style="color:#f0eeea">What happens to rate limits if I use 10 different
+                                IPs?</div>
+                            <div class="qna-hint">adversarial thinking</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slide-footer" style="background:#111;border-color:#222">
+                    <span class="slide-num" style="color:#555">10 / 18</span>
+                    <span class="slide-topic" style="color:#555">Q&A Round 1</span>
+                    <span class="instructor" style="color:#555">Instructor D</span>
+                </div>
+            </div>
+
+            <!-- ── SLIDE 11: CASE STUDY DIVIDER ── -->
+            <div class="slide session-divider" data-session="case-study" data-topic="Case Study">
+                <div class="slide-inner" style="justify-content:center;padding:52px 64px">
+                    <div class="tag" style="background:#0d4530;color:#6fcba8">6:30 – 7:00 PM</div>
+                    <h1 class="display" style="color:#faf9f6;font-size:44px">Hands-on<br><em style="color:#6fcba8">Case
+                            Study</em></h1>
+                    <p class="subtitle" style="color:#7a9a8a;margin-top:8px">Design a Ride-Hailing System<br>Uber / Bolt
+                        — using everything we just covered</p>
+                    <div class="two-col" style="margin-top:20px;max-width:480px">
+                        <div class="card" style="background:#111;border-color:#1a3528;color:#6fcba8">
+                            <div class="card-icon">⚖</div>
+                            <div class="card-title" style="color:#f0eeea">Load balancer</div>
+                            <div class="card-text" style="color:#7a9a8a">Where does it sit? What algorithm?</div>
+                        </div>
+                        <div class="card" style="background:#111;border-color:#1a3528">
+                            <div class="card-icon">🔑</div>
+                            <div class="card-title" style="color:#f0eeea">Auth design</div>
+                            <div class="card-text" style="color:#7a9a8a">How do riders vs drivers authenticate?</div>
+                        </div>
+                        <div class="card" style="background:#111;border-color:#1a3528">
+                            <div class="card-icon">🚦</div>
+                            <div class="card-title" style="color:#f0eeea">Rate limits</div>
+                            <div class="card-text" style="color:#7a9a8a">What limits where? Surge abuse?</div>
+                        </div>
+                        <div class="card" style="background:#111;border-color:#1a3528">
+                            <div class="card-icon">📦</div>
+                            <div class="card-title" style="color:#f0eeea">Stateless services</div>
+                            <div class="card-text" style="color:#7a9a8a">Which are? Which must be stateful?</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slide-footer" style="background:#111;border-color:#222">
+                    <span class="slide-num" style="color:#555">11 / 18</span>
+                    <span class="slide-topic" style="color:#555">Case Study Intro</span>
+                    <span class="instructor" style="color:#555">Instructor D</span>
+                </div>
+            </div>
+
+            <!-- ── SLIDE 12: SYSTEM OVERVIEW ── -->
+            <div class="slide" data-session="case-study" data-topic="System Overview">
+                <div class="slide-inner padded-sm">
+                    <div class="tag green">Case Study</div>
+                    <h2 class="slide-title">Uber/Bolt — <em>System Overview</em></h2>
+
+                    <div class="demo-zone">
+                        <div class="demo-label">Architecture at a glance</div>
+                        <div style="display:flex;flex-direction:column;align-items:center;gap:5px;font-size:12px">
+                            <div style="display:flex;gap:10px">
+                                <div class="box" style="min-width:90px">📱 Rider app</div>
+                                <div class="box" style="min-width:90px">🚗 Driver app</div>
+                                <div class="box" style="min-width:90px">🌐 Web</div>
+                            </div>
+                            <div class="connector" style="height:10px"></div>
+                            <div class="box blue" style="min-width:200px;padding:10px">⚖ API Gateway + Load
+                                Balancer<br><span
+                                    style="font-size:10px;font-weight:400;color:var(--blue);opacity:.7">rate limiting ·
+                                    auth · routing</span></div>
+                            <div class="connector" style="height:10px"></div>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+                                <div class="box" style="min-width:110px">🗺 Matching service</div>
+                                <div class="box" style="min-width:110px">📍 Location service</div>
+                                <div class="box" style="min-width:110px">💳 Payment service</div>
+                            </div>
+                            <div class="connector" style="height:10px"></div>
+                            <div style="display:flex;gap:8px">
+                                <div class="box green" style="min-width:110px">🗄 Postgres (trips)</div>
+                                <div class="box green" style="min-width:110px">🔴 Redis (positions)</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="three-col" style="margin-top:8px">
+                        <div class="card">
+                            <div class="card-title">Stateless services</div>
+                            <div class="card-text">Matching, Payment — use JWT. Any server handles any request.</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-title">Stateful (by design)</div>
+                            <div class="card-text">Location service — needs real-time state. Uses Redis.</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-title">Rate limits</div>
+                            <div class="card-text">Book ride: 20/min. Location ping: 60/min. Login: 5/min.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slide-footer">
+                    <span class="slide-num">12 / 18</span>
+                    <span class="slide-topic">Case Study — Architecture</span>
+                    <span class="instructor">Instructor D</span>
+                </div>
+            </div>
+
+            <!-- ── SLIDE 13: SURGE PRICING SIMULATION ── -->
+            <div class="slide" data-session="case-study" data-topic="Surge Simulation">
+                <div class="slide-inner padded-sm">
+                    <div class="tag amber">Live simulation</div>
+                    <h2 class="slide-title">Surge Pricing — <em>What triggers it?</em></h2>
+                    <p class="subtitle" style="margin-bottom:10px">When demand (riders) outpaces supply (drivers), the
+                        system applies surge. Watch the load balancer distribute driver-match requests.</p>
+
+                    <div class="demo-zone">
+                        <div class="demo-label">Lagos Island — request zone</div>
+                        <div class="city-map" id="city-map">
+                            <div class="city-grid"></div>
+                            <div class="surge-zone" id="surge-zone"
+                                style="width:120px;height:120px;left:40%;top:30%;transform:translate(-50%,-50%);display:none">
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+                            <button class="action-btn primary" onclick="addRider()">Add rider 🙋</button>
+                            <button class="action-btn" onclick="addCar()">Add driver 🚗</button>
+                            <button class="action-btn" onclick="resetMap()">Reset ↺</button>
+                            <span id="surge-label"
+                                style="font-size:12px;font-family:'DM Mono',monospace;color:var(--ink-3);margin-left:8px"></span>
+                        </div>
+                    </div>
+
+                    <div class="two-col" style="margin-top:6px">
+                        <div class="card">
+                            <div class="card-title">Load balancer role here</div>
+                            <div class="card-text">Match requests fan out across multiple matching service instances —
+                                least-connections algorithm under surge.</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-title">Rate limiting under surge</div>
+                            <div class="card-text">Cap location pings per driver. Prevent bots from spoofing positions
+                                to game surge.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slide-footer">
+                    <span class="slide-num">13 / 18</span>
+                    <span class="slide-topic">Surge Pricing Simulation</span>
+                    <span class="instructor">Instructor D</span>
+                </div>
+            </div>
+
+            <!-- ── SLIDE 14: DESIGN CHALLENGE ── -->
+            <div class="slide" data-session="case-study" data-topic="Design Challenge">
+                <div class="slide-inner padded-sm">
+                    <div class="tag green">Group challenge</div>
+                    <h2 class="slide-title">Design it <em>yourself</em></h2>
+                    <p class="subtitle" style="margin-bottom:16px">5 minutes. Think through one of these questions, then
+                        we discuss.</p>
+
+                    <div class="qna-grid">
+                        <div class="qna-card" style="border-color:#b3dfca;background:var(--green-bg)">
+                            <div class="qna-q">A driver's app keeps getting logged out mid-trip. What's the likely
+                                cause?</div>
+                            <div class="qna-hint" style="color:var(--green)">hint: stateless services / JWT expiry</div>
+                        </div>
+                        <div class="qna-card">
+                            <div class="qna-q">Bolt notices their "Get fare estimate" endpoint is being hammered by a
+                                competitor's bot. How do they stop it?</div>
+                            <div class="qna-hint">hint: rate limiting + auth</div>
+                        </div>
+                        <div class="qna-card">
+                            <div class="qna-q">10,000 riders all request a ride at the same time (e.g., after a
+                                concert). How does the matching service survive?</div>
+                            <div class="qna-hint">hint: horizontal scaling + load balancer</div>
+                        </div>
+                        <div class="qna-card">
+                            <div class="qna-q">A user found they could see another rider's trip data by changing the ID
+                                in the URL. What bug is this?</div>
+                            <div class="qna-hint">hint: BOLA / authorization</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slide-footer">
+                    <span class="slide-num">14 / 18</span>
+                    <span class="slide-topic">Design Challenge</span>
+                    <span class="instructor">Instructor D</span>
+                </div>
+            </div>
+
+            <!-- ── SLIDE 15: Q&A ROUND 2 ── -->
+            <div class="slide session-divider" data-session="qa" data-topic="Q&A Round 2">
+                <div class="slide-inner" style="justify-content:center;padding:52px 64px">
+                    <div class="tag" style="background:#1c3a6b;color:#93bbf0">7:00 – 7:30 PM</div>
+                    <h1 class="display" style="color:#faf9f6;font-size:48px">Q&A —<br><em style="color:#93bbf0">Round
+                            2</em></h1>
+                    <p class="subtitle" style="color:#7a7a9a;margin-top:8px">Design decisions, trade-offs, and anything
+                        from the case study.</p>
+
+                    <div class="qna-grid">
+                        <div class="qna-card" style="background:#1a1a18;border-color:#2a2a28">
+                            <div class="qna-q" style="color:#f0eeea">Would Uber use a single database or many? Why?
+                            </div>
+                            <div class="qna-hint">advanced design</div>
+                        </div>
+                        <div class="qna-card" style="background:#1a1a18;border-color:#2a2a28">
+                            <div class="qna-q" style="color:#f0eeea">How do you handle authentication for both rider and
+                                driver in the same system?</div>
+                            <div class="qna-hint">roles & scopes</div>
+                        </div>
+                        <div class="qna-card" style="background:#1a1a18;border-color:#2a2a28">
+                            <div class="qna-q" style="color:#f0eeea">What's WebSocket and when would the ride-hailing
+                                app use it?</div>
+                            <div class="qna-hint">real-time comms</div>
+                        </div>
+                        <div class="qna-card" style="background:#1a1a18;border-color:#2a2a28">
+                            <div class="qna-q" style="color:#f0eeea">Your question here ↓</div>
+                            <div class="qna-hint">open floor</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slide-footer" style="background:#111;border-color:#222">
+                    <span class="slide-num" style="color:#555">15 / 18</span>
+                    <span class="slide-topic" style="color:#555">Q&A Round 2</span>
+                    <span class="instructor" style="color:#555">Instructor D</span>
+                </div>
+            </div>
+
+            <!-- ── SLIDE 16: SOCIAL DIVIDER ── -->
+            <div class="slide session-divider" data-session="social" data-topic="Social">
+                <div class="slide-inner" style="justify-content:center;padding:52px 64px">
+                    <div class="tag" style="background:#3d2a7a;color:#b8acf0">7:30 – 8:00 PM</div>
+                    <h1 class="display" style="color:#faf9f6;font-size:44px">Get to know<br><em
+                            style="color:#b8acf0">someone</em></h1>
+                    <p class="subtitle" style="color:#9a8ab8;margin-top:8px"><br>One question. 1 minute each direction.</p>
+                </div>
+                <div class="slide-footer" style="background:#111;border-color:#222">
+                    <span class="slide-num" style="color:#555">16 / 18</span>
+                    <span class="slide-topic" style="color:#555">Social</span>
+                    <span class="instructor" style="color:#555">Instructor D</span>
+                </div>
+            </div>
+
+            <!-- ── SLIDE 17: SOCIAL PROMPTS ── -->
+            <div class="slide" data-session="social" data-topic="Conversation Prompts">
+                <div class="slide-inner center">
+                    <div class="tag purple">Networking</div>
+                    <h2 class="slide-title" style="margin-bottom:6px">Pick a prompt</h2>
+                    <!-- <p class="subtitle">Find someone new. Start with one of these.</p> -->
+
+                    <div class="social-grid" style="margin-top:20px;width:100%">
+                        <div class="social-card">
+                            <!-- <div class="sc-emoji">💡</div> -->
+                            <div class="sc-q">"What's one thing from today's session that clicked for you?"</div>
+                        </div>
+                        <div class="social-card">
+                            <!-- <div class="sc-emoji">🏗</div> -->
+                            <div class="sc-q">"What are you building right now — or what do you want to build?"</div>
+                        </div>
+                        <div class="social-card">
+                            <!-- <div class="sc-emoji">🛠</div> -->
+                            <div class="sc-q">"What's your go-to tool or stack right now?"</div>
+                        </div>
+                        <div class="social-card">
+                            <!-- <div class="sc-emoji">🤔</div> -->
+                            <div class="sc-q">"What's something in tech you don't understand yet but want to?"</div>
+                        </div>
+                        <div class="social-card">
+                            <!-- <div class="sc-emoji">🚀</div> -->
+                            <div class="sc-q">"Where do you want to be in 2 years?"</div>
+                        </div>
+                        <div class="social-card">
+                            <!-- <div class="sc-emoji">🎯</div> -->
+                            <div class="sc-q">"What's one problem you wish someone would just build a solution for?"
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slide-footer">
+                    <span class="slide-num">17 / 18</span>
+                    <span class="slide-topic">Conversation Prompts</span>
+                    <span class="instructor">Instructor D</span>
+                </div>
+            </div>
+
+            <!-- ── SLIDE 18: CLOSE ── -->
+            <div class="slide" data-session="social" data-topic="Wrap-up">
+                <div class="slide-inner center">
+                    <div class="tag ink">Week 4 — Done ✓</div>
+                    <h1 class="display" style="font-size:42px">See you <em>next time?</em></h1>
+                    <p class="subtitle" style="margin-top:10px">Keep building, keep asking questions.
+                    </p>
+
+                    <div class="two-col" style="margin-top:24px;max-width:440px;text-align:left">
+                        <div class="card">
+                            <div class="card-title">What we covered</div>
+                            <div class="card-text">Load balancing · Horizontal scaling · JWT/stateless · Rate limiting ·
+                                Auth · Abuse prevention</div>
+                        </div>
+                        <div class="card">
+                            <div class="card-title">Homework idea</div>
+                            <div class="card-text">Sketch the full Uber architecture on paper. Label where each concept
+                                from today applies.</div>
+                        </div>
+                    </div>
+
+                    <div class="cover-meta" style="margin-top:24px;flex-direction:column;align-items:center">
+                        <div class="avatar"
+                            style="background:none;border:2px solid var(--rule);overflow:hidden;padding:0;width:52px;height:52px">
+                            <img src="https://media.licdn.com/dms/image/v2/C5603AQH337BwJ68vOw/profile-displayphoto-shrink_800_800/profile-displayphoto-shrink_800_800/0/1645184903155?e=1776297600&v=beta&t=jQ8fzUHJuP60il4Lpzuw5jNXCj6TYbTsEF_uy1Dhuws"
+                                style="width:100%;height:100%;object-fit:cover;display:block" alt="Godson Ani"
+                                onerror="this.parentElement.textContent='GA'">
+                        </div>
+                        <div class="cover-meta-text" style="text-align:center;margin-top:8px">
+                            <div class="name">Godson Ani</div>
+                            <div class="links">godson.ani@cureris.me</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="slide-footer">
+                    <span class="slide-num">18 / 18</span>
+                    <span class="slide-topic">Wrap-up</span>
+                    <span class="instructor">Instructor D</span>
+                </div>
+            </div>
+
+        </div><!-- /stage -->
+
+        <!-- NAVIGATION -->
+        <div id="nav">
+            <button class="nav-btn" id="btn-prev" onclick="prevSlide()" disabled>← Prev</button>
+            <div id="dots"></div>
+            <span id="progress-text">1 / 18</span>
+            <button class="nav-btn" id="btn-next" onclick="nextSlide()">Next →</button>
+        </div>
+    </div>
+
+    <script>
+        const slides = document.querySelectorAll('.slide');
+        const sessionLabel = document.getElementById('session-label');
+        let current = 0;
+
+        const sessionMeta = {
+            teaching: { label: 'Teaching Session', cls: 'teaching' },
+            qa: { label: 'Q&A', cls: '' },
+            'case-study': { label: 'Case Study', cls: 'case-study' },
+            social: { label: 'Social', cls: 'social' }
+        };
+
+        function goTo(n) {
+            slides[current].classList.remove('active');
+            current = Math.max(0, Math.min(n, slides.length - 1));
+            slides[current].classList.add('active');
+            document.getElementById('progress-text').textContent = `${current + 1} / ${slides.length}`;
+            document.getElementById('btn-prev').disabled = current === 0;
+            document.getElementById('btn-next').disabled = current === slides.length - 1;
+            updateDots();
+            updateSession();
+        }
+        function nextSlide() { goTo(current + 1); }
+        function prevSlide() { goTo(current - 1); }
+
+        function updateSession() {
+            const s = slides[current].dataset.session || 'teaching';
+            const meta = sessionMeta[s] || sessionMeta.teaching;
+            sessionLabel.textContent = meta.label;
+            sessionLabel.className = 'session-badge ' + meta.cls;
+        }
+
+        function buildDots() {
+            const c = document.getElementById('dots');
+            c.innerHTML = '';
+            let prevSess = null;
+            slides.forEach((sl, i) => {
+                const s = sl.dataset.session;
+                if (prevSess && s !== prevSess) {
+                    const sep = document.createElement('div'); sep.className = 'dot-sep'; c.appendChild(sep);
+                }
+                const d = document.createElement('div');
+                d.className = 'dot ' + s;
+                d.title = sl.dataset.topic || '';
+                d.onclick = () => goTo(i);
+                c.appendChild(d);
+                prevSess = s;
+            });
+        }
+
+        function updateDots() {
+            const dots = document.querySelectorAll('.dot');
+            dots.forEach((d, i) => d.classList.toggle('active', i === current));
+            const realDots = document.querySelectorAll('#dots .dot');
+            let di = 0;
+            for (let i = 0; i < slides.length; i++) {
+                if (realDots[di]) realDots[di].classList.toggle('active', i === current);
+                di++;
+            }
+        }
+
+        buildDots(); updateDots(); updateSession();
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') nextSlide();
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') prevSlide();
+        });
+
+     
+        let counts = [30, 50, 20], reqCount = 0, rr = 0;
+        function sendReq() {
+            const target = rr % 3;
+            rr++;
+            reqCount++;
+            const srvEl = document.getElementById(`srv${target + 1}`);
+            const pEl = document.getElementById(`p${target + 1}`);
+            srvEl.classList.add('hit');
+            counts[target] = Math.min(100, counts[target] + 10);
+            pEl.style.width = counts[target] + '%';
+            setTimeout(() => { srvEl.classList.remove('hit'); counts[target] = Math.max(5, counts[target] - 5); pEl.style.width = counts[target] + '%'; }, 600);
+            document.getElementById('lb-counter').textContent = reqCount + ' request' + (reqCount > 1 ? 's' : '') + ' routed';
+        }
+
+        // ── SCALING DEMO ──
+        let serverCount = 2, scaleMode = 'h';
+        function buildServerGrid() {
+            const g = document.getElementById('server-grid');
+            if (!g) return;
+            g.innerHTML = '';
+            if (scaleMode === 'h') {
+                for (let i = 0; i < serverCount; i++) {
+                    const b = document.createElement('div');
+                    b.className = 'box'; b.style.minWidth = '74px';
+                    b.textContent = `Server ${i + 1}`;
+                    g.appendChild(b);
+                }
+            } else {
+                const b = document.createElement('div');
+                b.className = 'box'; b.style.minWidth = '120px';
+                b.style.padding = '10px 20px';
+                b.innerHTML = `🖥 1 Big Server<br><span style="font-size:10px;color:var(--ink-3)">${serverCount * 4} vCPU · ${serverCount * 8}GB RAM</span>`;
+                g.appendChild(b);
+            }
+        }
+        function addServer() {
+            serverCount++; buildServerGrid();
+            document.getElementById('scale-demo-label').textContent = scaleMode === 'h'
+                ? `Horizontal — ${serverCount} servers running`
+                : `Vertical — 1 server, ${serverCount * 4} vCPU upgraded`;
+        }
+        function pickScale(mode) {
+            scaleMode = mode; serverCount = 2;
+            document.getElementById('opt-h').classList.toggle('chosen', mode === 'h');
+            document.getElementById('opt-v').classList.toggle('chosen', mode === 'v');
+            document.getElementById('scale-demo-label').textContent = mode === 'h' ? 'Horizontal scaling' : 'Vertical scaling';
+            buildServerGrid();
+        }
+        buildServerGrid();
+
+        let bucketTokens = 5;
+        function updateBucket() {
+            const sz = parseInt(document.getElementById('bucket-size').value);
+            document.getElementById('bucket-val').textContent = sz;
+            bucketTokens = sz;
+            renderTokens(sz);
+        }
+        function renderTokens(sz) {
+            const d = document.getElementById('token-display');
+            if (!d) return;
+            d.innerHTML = '';
+            for (let i = 0; i < parseInt(document.getElementById('bucket-size').value); i++) {
+                const t = document.createElement('div');
+                t.className = 'token' + (i >= bucketTokens ? ' used' : '');
+                t.textContent = i < bucketTokens ? '✓' : '✗';
+                d.appendChild(t);
+            }
+        }
+        function fireRequest() {
+            const resp = document.getElementById('rl-response');
+            if (bucketTokens > 0) {
+                bucketTokens--;
+                renderTokens();
+                resp.style.background = 'var(--green-bg)'; resp.style.color = 'var(--green)';
+                resp.textContent = `HTTP 200 OK — X-RateLimit-Remaining: ${bucketTokens}`;
+            } else {
+                resp.style.background = 'var(--red-bg)'; resp.style.color = 'var(--red)';
+                resp.textContent = 'HTTP 429 Too Many Requests — Retry-After: 60s';
+            }
+        }
+        function refillBucket() {
+            bucketTokens = parseInt(document.getElementById('bucket-size').value);
+            renderTokens();
+            const resp = document.getElementById('rl-response');
+            resp.style.background = 'var(--blue-bg)'; resp.style.color = 'var(--blue)';
+            resp.textContent = 'Bucket refilled — new window started';
+        }
+        setTimeout(() => { renderTokens(); }, 100);
+
+        // ── AUTH GATES ──
+        function checkGate(row, msg) {
+            const r = row.querySelector('.gate-result');
+            r.className = 'gate-result pass'; r.textContent = msg;
+        }
+        function checkGateF(row, msg) {
+            const r = row.querySelector('.gate-result');
+            r.className = 'gate-result fail'; r.textContent = msg;
+        }
+
+        // ── JWT TABS ──
+        function switchJWT(id) {
+            document.querySelectorAll('#panel-jwt .tab, .slide:nth-child(6) .tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tpanel').forEach(p => p.classList.remove('active'));
+            document.getElementById('jwt-' + id).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // ── SURGE MAP ──
+        let riders = [], cars = [], surgeActive = false;
+        function addRider() {
+            const map = document.getElementById('city-map');
+            if (!map) return;
+            const pin = document.createElement('div');
+            pin.className = 'rider-pin';
+            pin.textContent = '🙋';
+            pin.style.left = (10 + Math.random() * 75) + '%';
+            pin.style.top = (10 + Math.random() * 75) + '%';
+            map.appendChild(pin);
+            riders.push(pin);
+            checkSurge();
+        }
+        function addCar() {
+            const map = document.getElementById('city-map');
+            if (!map) return;
+            const car = document.createElement('div');
+            car.className = 'car';
+            car.textContent = '🚗';
+            car.style.left = (10 + Math.random() * 75) + '%';
+            car.style.top = (10 + Math.random() * 75) + '%';
+            map.appendChild(car);
+            cars.push(car);
+            animateCar(car);
+            checkSurge();
+        }
+        function animateCar(car) {
+            setInterval(() => {
+                car.style.left = (10 + Math.random() * 75) + '%';
+                car.style.top = (10 + Math.random() * 75) + '%';
+            }, 2000 + Math.random() * 2000);
+        }
+        function checkSurge() {
+            const ratio = riders.length / Math.max(1, cars.length);
+            const lbl = document.getElementById('surge-label');
+            const zone = document.getElementById('surge-zone');
+            if (!lbl || !zone) return;
+            if (ratio >= 2 && riders.length >= 3) {
+                surgeActive = true;
+                zone.style.display = 'block';
+                lbl.textContent = `⚡ Surge ${Math.min(3, Math.round(ratio * 10) / 10)}× — ${riders.length} riders, ${cars.length} drivers`;
+                lbl.style.color = 'var(--red)';
+            } else if (ratio >= 1.5) {
+                zone.style.display = 'none';
+                lbl.textContent = `${riders.length} riders, ${cars.length} drivers — normal`;
+                lbl.style.color = 'var(--amber)';
+            } else {
+                surgeActive = false;
+                zone.style.display = 'none';
+                lbl.textContent = `${riders.length} riders, ${cars.length} drivers — supply ok`;
+                lbl.style.color = 'var(--green)';
+            }
+        }
+        function resetMap() {
+            const map = document.getElementById('city-map');
+            if (!map) return;
+            document.querySelectorAll('.rider-pin, .car').forEach(e => e.remove());
+            riders = []; cars = [];
+            document.getElementById('surge-zone').style.display = 'none';
+            document.getElementById('surge-label').textContent = '';
+        }
+    </script>
+</body>
+
+</html>
